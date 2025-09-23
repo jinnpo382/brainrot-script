@@ -1,0 +1,2 @@
+# brainrot-script
+brainrotのスクリプト FROAT
