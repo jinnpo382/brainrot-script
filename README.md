@@ -1,14 +1,15 @@
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
 local player = Players.LocalPlayer
 
--- キャラ取得
+-- キャラと重要パーツ取得
 local function getCharacter()
 	local char = player.Character or player.CharacterAdded:Wait()
 	return char, char:WaitForChild("HumanoidRootPart")
 end
 
--- UIドラッグ機能
+-- UIドラッグ可能化
 local function makeDraggable(guiObject)
 	local dragging = false
 	local dragStart, startPos
@@ -62,23 +63,20 @@ local function createUI()
 	button.Text = "🚀 Float ON"
 	button.Parent = screenGui
 
-	-- 丸み
 	local corner = Instance.new("UICorner", button)
 	corner.CornerRadius = UDim.new(0, 16)
 
-	-- 枠線
 	local stroke = Instance.new("UIStroke", button)
 	stroke.Color = Color3.fromRGB(255, 255, 255)
 	stroke.Thickness = 2
 	stroke.Transparency = 0.3
 
-	-- ドラッグできるように
 	makeDraggable(button)
 
 	return button
 end
 
--- フロート作成
+-- フロート作成（足元にFROATパーツ）
 local function createFROAT(char)
 	local root = char:WaitForChild("HumanoidRootPart")
 
@@ -100,11 +98,19 @@ local function createFROAT(char)
 	return froat
 end
 
--- 浮遊機能
+-- 浮遊機能（ジャンプ押しっぱなしでゆっくり上昇）
 local function setupFloat(button, char, root)
 	local isFloating = false
 	local bodyPos = nil
 	local froat = nil
+
+	local function stopFloat()
+		isFloating = false
+		button.Text = "🚀 Float ON"
+		button.BackgroundColor3 = Color3.fromRGB(0, 200, 255)
+		if bodyPos then bodyPos:Destroy() bodyPos = nil end
+		if froat then froat:Destroy() froat = nil end
+	end
 
 	local function startFloat()
 		isFloating = true
@@ -121,15 +127,6 @@ local function setupFloat(button, char, root)
 		froat = createFROAT(char)
 	end
 
-	local function stopFloat()
-		isFloating = false
-		button.Text = "🚀 Float ON"
-		button.BackgroundColor3 = Color3.fromRGB(0, 200, 255)
-
-		if bodyPos then bodyPos:Destroy() end
-		if froat then froat:Destroy() end
-	end
-
 	button.MouseButton1Click:Connect(function()
 		if isFloating then
 			stopFloat()
@@ -138,10 +135,12 @@ local function setupFloat(button, char, root)
 		end
 	end)
 
-	-- ジャンプで上昇
-	UserInputService.JumpRequest:Connect(function()
+	-- 毎フレームジャンプ押しっぱなしでゆっくり上昇
+	RunService.Heartbeat:Connect(function()
 		if isFloating and bodyPos then
-			bodyPos.Position += Vector3.new(0, 5, 0)
+			if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
+				bodyPos.Position = bodyPos.Position + Vector3.new(0, 0.2, 0) -- 上昇速度調整可
+			end
 		end
 	end)
 end
