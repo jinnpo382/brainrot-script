@@ -1,160 +1,155 @@
-local Players = game:GetService("Players")
-local UserInputService = game:GetService("UserInputService")
+local player = game.Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local hrp = character:WaitForChild("HumanoidRootPart")
 local RunService = game:GetService("RunService")
-local player = Players.LocalPlayer
+local workspace = game:GetService("Workspace")
+local Players = game:GetService("Players")
 
--- キャラと重要パーツ取得
-local function getCharacter()
-	local char = player.Character or player.CharacterAdded:Wait()
-	return char, char:WaitForChild("HumanoidRootPart")
+-- =====================
+-- ScreenGui 作成
+-- =====================
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "CyberFootESPUI"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = player:WaitForChild("PlayerGui")
+
+-- メインフレーム（半透明ネオン風）
+local mainFrame = Instance.new("Frame")
+mainFrame.Size = UDim2.new(0, 280, 0, 80)
+mainFrame.Position = UDim2.new(0, 10, 0, 10)
+mainFrame.BackgroundColor3 = Color3.fromRGB(10, 10, 40)
+mainFrame.BackgroundTransparency = 0.2
+mainFrame.BorderSizePixel = 0
+mainFrame.Parent = screenGui
+
+-- UI光の縁（Neonフレーム的）
+local uicorner = Instance.new("UICorner")
+uicorner.CornerRadius = UDim.new(0,12)
+uicorner.Parent = mainFrame
+
+local frameGradient = Instance.new("UIGradient")
+frameGradient.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(0,255,255)),
+    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255,0,255)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(0,255,255))
+})
+frameGradient.Rotation = 45
+frameGradient.Parent = mainFrame
+
+-- ボタンの共通作成関数
+local function createButton(name, text, pos, color)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(0, 120, 0, 40)
+    btn.Position = pos
+    btn.Text = text
+    btn.BackgroundColor3 = color
+    btn.TextColor3 = Color3.fromRGB(0,0,0)
+    btn.Font = Enum.Font.GothamBlack
+    btn.TextScaled = true
+    btn.AutoButtonColor = false
+    btn.Parent = mainFrame
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0,10)
+    corner.Parent = btn
+
+    local gradient = Instance.new("UIGradient")
+    gradient.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(255,0,255)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(0,255,255))
+    })
+    gradient.Rotation = 45
+    gradient.Parent = btn
+
+    return btn
 end
 
--- UIドラッグ可能化
-local function makeDraggable(guiObject)
-	local dragging = false
-	local dragStart, startPos
+-- 足場ボタン
+local createPartButton = createButton("FootButton", "Hold: Rainbow Foot", UDim2.new(0,10,0,20), Color3.fromRGB(0,255,0))
 
-	local function update(input)
-		local delta = input.Position - dragStart
-		guiObject.Position = UDim2.new(
-			startPos.X.Scale,
-			startPos.X.Offset + delta.X,
-			startPos.Y.Scale,
-			startPos.Y.Offset + delta.Y
-		)
-	end
+-- =====================
+-- 足場生成処理
+-- =====================
+local creating = false
+local footParts = {}
 
-	guiObject.InputBegan:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-			dragging = true
-			dragStart = input.Position
-			startPos = guiObject.Position
+local function createFootPart()
+    local footPos = hrp.Position - Vector3.new(0, hrp.Size.Y/2 + 1, 0)
+    local part = Instance.new("Part")
+    part.Size = Vector3.new(4,1,4)
+    part.Position = footPos
+    part.Anchored = true
+    part.CanCollide = true
+    part.Material = Enum.Material.Neon
+    part.Parent = workspace
 
-			input.Changed:Connect(function()
-				if input.UserInputState == Enum.UserInputState.End then
-					dragging = false
-				end
-			end)
-		end
-	end)
+    table.insert(footParts, part)
 
-	guiObject.InputChanged:Connect(function(input)
-		if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-			update(input)
-		end
-	end)
+    delay(3, function()
+        for i,p in pairs(footParts) do
+            if p==part then table.remove(footParts,i) break end
+        end
+        if part then part:Destroy() end
+    end)
 end
 
--- UI作成
-local function createUI()
-	local screenGui = Instance.new("ScreenGui")
-	screenGui.Name = "FloatUI"
-	screenGui.ResetOnSpawn = false
-	screenGui.Parent = player:WaitForChild("PlayerGui")
+createPartButton.MouseButton1Down:Connect(function()
+    creating = true
+    while creating do
+        createFootPart()
+        wait(0.1)
+    end
+end)
 
-	local button = Instance.new("TextButton")
-	button.Name = "FloatToggleButton"
-	button.Size = UDim2.new(0, 160, 0, 60)
-	button.Position = UDim2.new(0.5, -80, 1, -120)
-	button.BackgroundColor3 = Color3.fromRGB(0, 200, 255)
-	button.TextColor3 = Color3.new(1, 1, 1)
-	button.TextScaled = true
-	button.Font = Enum.Font.GothamBold
-	button.Text = "🚀 Float ON"
-	button.Parent = screenGui
+createPartButton.MouseButton1Up:Connect(function()
+    creating = false
+end)
 
-	local corner = Instance.new("UICorner", button)
-	corner.CornerRadius = UDim.new(0, 16)
+-- 虹色発光
+RunService.RenderStepped:Connect(function()
+    for _, part in pairs(footParts) do
+        if part then
+            part.Color = Color3.fromHSV(tick()%1,1,1)
+        end
+    end
+end)
 
-	local stroke = Instance.new("UIStroke", button)
-	stroke.Color = Color3.fromRGB(255, 255, 255)
-	stroke.Thickness = 2
-	stroke.Transparency = 0.3
+-- =====================
+-- ESP機能
+-- =====================
+local espFolder = Instance.new("Folder")
+espFolder.Name = "ESP_Folder"
+espFolder.Parent = workspace
 
-	makeDraggable(button)
+local function createESP(playerTarget)
+    if playerTarget == player then return end
 
-	return button
+    local billboard = Instance.new("BillboardGui")
+    billboard.Name = "ESP"
+    billboard.Size = UDim2.new(0,100,0,50)
+    billboard.AlwaysOnTop = true
+    billboard.Adornee = playerTarget.Character and playerTarget.Character:FindFirstChild("HumanoidRootPart")
+    billboard.Parent = espFolder
+
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(1,0,1,0)
+    label.BackgroundTransparency = 1
+    label.TextColor3 = Color3.fromRGB(255,0,0)
+    label.TextStrokeTransparency = 0
+    label.TextScaled = true
+    label.Font = Enum.Font.GothamBold
+    label.Text = playerTarget.Name
+    label.Parent = billboard
+
+    playerTarget.CharacterRemoving:Connect(function()
+        billboard:Destroy()
+    end)
 end
 
--- フロート作成（足元にFROATパーツ）
-local function createFROAT(char)
-	local root = char:WaitForChild("HumanoidRootPart")
-
-	local froat = Instance.new("Part")
-	froat.Name = "FROAT"
-	froat.Size = Vector3.new(2, 0.4, 2)
-	froat.Position = root.Position - Vector3.new(0, 2.5, 0)
-	froat.Anchored = false
-	froat.CanCollide = false
-	froat.BrickColor = BrickColor.new("Bright blue")
-	froat.Material = Enum.Material.Neon
-	froat.Parent = char
-
-	local weld = Instance.new("WeldConstraint")
-	weld.Part0 = froat
-	weld.Part1 = root
-	weld.Parent = froat
-
-	return froat
+for _,p in pairs(Players:GetPlayers()) do
+    if p.Character then createESP(p) end
 end
 
--- 浮遊機能（ジャンプ押しっぱなしでゆっくり上昇）
-local function setupFloat(button, char, root)
-	local isFloating = false
-	local bodyPos = nil
-	local froat = nil
-
-	local function stopFloat()
-		isFloating = false
-		button.Text = "🚀 Float ON"
-		button.BackgroundColor3 = Color3.fromRGB(0, 200, 255)
-		if bodyPos then bodyPos:Destroy() bodyPos = nil end
-		if froat then froat:Destroy() froat = nil end
-	end
-
-	local function startFloat()
-		isFloating = true
-		button.Text = "❌ Float OFF"
-		button.BackgroundColor3 = Color3.fromRGB(255, 80, 80)
-
-		bodyPos = Instance.new("BodyPosition")
-		bodyPos.MaxForce = Vector3.new(0, math.huge, 0)
-		bodyPos.Position = root.Position
-		bodyPos.D = 1000
-		bodyPos.P = 4000
-		bodyPos.Parent = root
-
-		froat = createFROAT(char)
-	end
-
-	button.MouseButton1Click:Connect(function()
-		if isFloating then
-			stopFloat()
-		else
-			startFloat()
-		end
-	end)
-
-	-- 毎フレームジャンプ押しっぱなしでゆっくり上昇
-	RunService.Heartbeat:Connect(function()
-		if isFloating and bodyPos then
-			if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
-				bodyPos.Position = bodyPos.Position + Vector3.new(0, 0.2, 0) -- 上昇速度調整可
-			end
-		end
-	end)
-end
-
--- 実行
-local function main()
-	local char, root = getCharacter()
-	local button = createUI()
-	setupFloat(button, char, root)
-
-	player.CharacterAdded:Connect(function(newChar)
-		local newRoot = newChar:WaitForChild("HumanoidRootPart")
-		setupFloat(button, newChar, newRoot)
-	end)
-end
-
-main()
+Players.PlayerAdded:Connect(function(p)
+    p.CharacterAdded:Connect(function() createESP(p) end)
+end)
